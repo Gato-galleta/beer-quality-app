@@ -6,7 +6,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'quality_app',
+    'quality',
 ]
 """
 Django settings for beer_quality project.
@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    'quality_app',
+    'quality',
 ]
 
 MIDDLEWARE = [
