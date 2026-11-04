@@ -1,13 +1,3 @@
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
-    'quality',
-]
 """
 Django settings for beer_quality project.
 
@@ -20,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,12 +21,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-o)ca57mviugju78g0&xhkbs(=t-6*4=57$a_n6lzeh8!z@p#h!'
+# En el servidor se define la variable de entorno SECRET_KEY; la clave de abajo solo sirve en tu computador.
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-o)ca57mviugju78g0&xhkbs(=t-6*4=57$a_n6lzeh8!z@p#h!',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# En el servidor se define DEBUG=0; en tu computador queda activo.
+DEBUG = os.environ.get('DEBUG', '1') == '1'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if _host:
+    ALLOWED_HOSTS.append(_host)
+    CSRF_TRUSTED_ORIGINS = ['https://' + _host]
 
 
 # Application definition
@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -61,6 +62,9 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'beer_quality.urls'
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
 
 TEMPLATES = [
     {
@@ -127,6 +131,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

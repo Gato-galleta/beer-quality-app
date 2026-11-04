@@ -1,0 +1,94 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f4ee">
+  <title>Control de calidad | Fermenta</title>
+  <link rel="stylesheet" href="{% static 'quality/dashboard.css' %}?v={% now 'U' %}">
+  <script src="{% static 'quality/dashboard.js' %}?v={% now 'U' %}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Fermenta, inicio">
+      <span class="brand-mark" aria-hidden="true">F</span>
+      <span>FERMENTA<span class="brand-divider">/</span><span class="brand-subtitle">CONTROL DE CALIDAD</span></span>
+    </a>
+    <div class="account-bar">
+      <span class="account-name">{{ request.user.get_username }}</span>
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button class="logout-button" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión">↗</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">LABORATORIO · ANÁLISIS DE LOTE</p>
+      <h1 id="page-title">Calidad de <em>cerveza</em>,<br>decisiones claras.</h1>
+      <p class="intro-copy">Introduce las mediciones de cada etapa, de los granos a la logística, para obtener una recomendación por etapa y global.</p>
+    </section>
+
+    <div class="workbench">
+      <form id="quality-form" class="measurement-form">
+        {% csrf_token %}
+        <div class="form-heading">
+          <div>
+            <p class="eyebrow">NUEVO ANÁLISIS</p>
+            <h2>Mediciones del lote</h2>
+          </div>
+          <span class="required-note">Todos los campos son opcionales</span>
+        </div>
+
+        <nav class="stage-menu" id="stage-menu" aria-label="Elegir etapa del proceso">
+          <button type="button" class="stage-tab is-active" data-stage="todas" aria-pressed="true">Todas</button>
+          {% for stage in stages %}
+          <button type="button" class="stage-tab" data-stage="{{ stage.key }}" aria-pressed="false"><span class="tab-index">{{ forloop.counter|stringformat:"02d" }}</span>{{ stage.label }}</button>
+          {% endfor %}
+        </nav>
+        <p class="menu-hint" id="menu-hint">Mostrando todas las etapas. Elige una para analizarla por separado.</p>
+
+        {% for stage in stages %}
+        <fieldset class="process-group" data-stage="{{ stage.key }}">
+          <legend><span class="group-index">{{ forloop.counter|stringformat:"02d" }}</span><span>{{ stage.label }}</span><small>{{ stage.subtitle }}</small></legend>
+          <div class="field-grid">
+            {% for p in stage.parameters %}
+            <label class="field" for="{{ stage.key }}-{{ p.key }}">{{ p.label }}{% if p.unit %} <span class="unit">{{ p.unit }}</span>{% endif %}
+              <input id="{{ stage.key }}-{{ p.key }}" name="{{ stage.key }}.{{ p.key }}" type="number" step="any" inputmode="decimal">
+            </label>
+            {% endfor %}
+          </div>
+          {% if stage.key == "logistica" %}<p class="coverage-note">Ingresa ambos valores. Los pallets deben ser números enteros y los OK no pueden superar el total.</p>{% endif %}
+        </fieldset>
+        {% endfor %}
+
+        <div class="form-actions">
+          <button class="text-button" id="example-button" type="button">Cargar lote de ejemplo</button>
+          <button class="submit-button" id="submit-button" type="submit"><span class="button-label" id="button-label">Analizar lote</span><span class="button-arrow" aria-hidden="true">→</span></button>
+        </div>
+        <p id="form-error" class="form-error" role="alert" hidden></p>
+      </form>
+
+      <aside class="result-panel" aria-labelledby="result-title" aria-live="polite">
+        <div class="result-topline"><span>RESULTADO</span><span class="result-index">01 / 01</span></div>
+        <div class="result-content" id="result-content">
+          <div class="result-emblem" aria-hidden="true"><span></span><span></span><span></span></div>
+          <p class="eyebrow" id="result-state">EN ESPERA</p>
+          <h2 id="result-title">Tu análisis<br>aparecerá aquí.</h2>
+          <p class="result-description" id="result-description">Completa las mediciones y analiza el lote para ver la recomendación por etapa.</p>
+        </div>
+        <div class="stage-summary" id="stage-summary" hidden>
+          <ul class="stage-list" id="stage-list"></ul>
+          <p class="stage-note" id="stage-note"></p>
+        </div>
+        <div class="result-footer"><span class="footer-mark">F</span><span>EVALUACIÓN POR ETAPA</span><span class="local-tag">LOCAL</span></div>
+      </aside>
+    </div>
+
+    <footer class="page-footer"><span>FERMENTA · HERRAMIENTA DE CONTROL DE LOTE</span><span>LOS RESULTADOS SON ORIENTATIVOS</span></footer>
+  </main>
+  {{ example_lot|json_script:"example-lot" }}
+</body>
+</html>

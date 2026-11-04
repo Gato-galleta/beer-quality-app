@@ -1,6 +1,22 @@
+# Entorno virtual y caches de Python
+venv/
 .venv/
+env/
 __pycache__/
 *.pyc
+
+# Base de datos local y secretos (NO subir)
 db.sqlite3
-staticfiles/
 .env
+*.log
+
+# Respaldos y datos privados
+_respaldo_antes_de_*/
+*.xlsx
+
+# Editor / sistema
+.vscode/
+.DS_Store
+Thumbs.db
+staticfiles/
+quality/ml/data/

@@ -1,0 +1,1 @@
+"""Area-specific agents for beer quality analysis."""
