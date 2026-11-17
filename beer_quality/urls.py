@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import path, include, reverse_lazy
-from quality.views import dashboard_view
+from quality.views import dashboard_view, rules_view
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -20,5 +20,6 @@ urlpatterns = [
         name="logout",
     ),
     path("", dashboard_view, name="dashboard"),
+    path("reglas/", rules_view, name="rules"),
     path("quality/", include("quality.urls")),
 ]

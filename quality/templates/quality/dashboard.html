@@ -15,6 +15,10 @@
       <span class="brand-mark" aria-hidden="true">F</span>
       <span>FERMENTA<span class="brand-divider">/</span><span class="brand-subtitle">CONTROL DE CALIDAD</span></span>
     </a>
+    <nav class="main-nav" aria-label="Secciones">
+      <a href="{% url 'dashboard' %}" aria-current="page">Análisis de lote</a>
+      <a href="{% url 'rules' %}">Reglas de decisión</a>
+    </nav>
     <div class="account-bar">
       <span class="account-name">{{ request.user.get_username }}</span>
       <form action="{% url 'logout' %}" method="post">

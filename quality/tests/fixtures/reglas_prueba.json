@@ -1,0 +1,13 @@
+{
+ "areas": [
+  {"key": "prueba", "label": "Área de prueba", "documento": "DOC-1", "revisado": "2026-01-01", "descripcion": "Reglas ficticias para pruebas."},
+  {"key": "otra", "label": "Otra área", "documento": "DOC-2", "revisado": "2026-01-01", "descripcion": "Más reglas ficticias."},
+  {"key": "vacia", "label": "Área sin reglas", "documento": "DOC-3", "revisado": "2026-01-01", "descripcion": "Sin reglas.", "sin_reglas": true}
+ ],
+ "reglas": [
+  {"id": "prueba-01", "area": "prueba", "seccion": "Filtro", "control": "Presión de entrada del filtro", "condicion": "Sobre 5 bar", "nivel": "corregir", "acciones": ["Preparar deslode."], "impacto": "", "escalar": "Líder", "palabras": "presion bar", "incompleto": false},
+  {"id": "prueba-02", "area": "prueba", "seccion": "Producto", "control": "Oxígeno total (TPO)", "condicion": "Fuera de tolerancia", "nivel": "detener", "acciones": ["Parar la máquina."], "impacto": "", "escalar": "", "palabras": "tpo", "incompleto": true},
+  {"id": "otra-01", "area": "otra", "seccion": "Equipos", "control": "Pick up de oxígeno", "condicion": "Zona amarilla", "nivel": "corregir", "acciones": ["Revisar válvulas."], "impacto": "", "escalar": "", "palabras": "", "incompleto": false},
+  {"id": "otra-02", "area": "otra", "seccion": "Pasteurizador", "control": "Unidades de pasteurización (UP)", "condicion": "Fuera de tolerancia", "nivel": "detener", "acciones": ["Parar la línea."], "impacto": "", "escalar": "", "palabras": "", "incompleto": false}
+ ]
+}

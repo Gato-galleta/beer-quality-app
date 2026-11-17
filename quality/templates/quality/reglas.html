@@ -1,0 +1,93 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f3f4ee">
+  <title>Reglas de decisión | Fermenta</title>
+  <link rel="stylesheet" href="{% static 'quality/dashboard.css' %}?v={% now 'U' %}">
+  <link rel="stylesheet" href="{% static 'quality/reglas.css' %}?v={% now 'U' %}">
+  <script src="{% static 'quality/reglas.js' %}?v={% now 'U' %}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Fermenta, inicio">
+      <span class="brand-mark" aria-hidden="true">F</span>
+      <span>FERMENTA<span class="brand-divider">/</span><span class="brand-subtitle">CONTROL DE CALIDAD</span></span>
+    </a>
+    <nav class="main-nav" aria-label="Secciones">
+      <a href="{% url 'dashboard' %}">Análisis de lote</a>
+      <a href="{% url 'rules' %}" aria-current="page">Reglas de decisión</a>
+    </nav>
+    <div class="account-bar">
+      <span class="account-name">{{ request.user.get_username }}</span>
+      <form action="{% url 'logout' %}" method="post">
+        {% csrf_token %}
+        <button class="logout-button" type="submit" aria-label="Cerrar sesión" title="Cerrar sesión">↗</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="eyebrow">OPERACIÓN · GUÍA DE REGLAS DE DECISIÓN</p>
+      <h1 id="page-title">¿Qué hago<br>si <em>algo se desvía</em>?</h1>
+      <p class="intro-copy">Escribe el problema como lo dirías en el turno, o elige un área. La guía muestra la regla de decisión que corresponde, los pasos a seguir y a quién avisar.</p>
+    </section>
+
+    {% if not areas %}
+    <p class="form-error">No hay reglas cargadas. Falta el archivo de reglas de decisión de la planta.</p>
+    {% else %}
+    <div class="rules-layout">
+      <section class="rules-main" aria-label="Consulta">
+        <form id="ask-form" class="ask-form" role="search">
+          <label for="ask-input" class="ask-label">Tu pregunta</label>
+          <div class="ask-row">
+            <input id="ask-input" name="q" type="search" autocomplete="off" maxlength="200" value="{{ query }}"
+                   placeholder="Ej.: presión del filtro sobre 5 bar">
+            <button class="submit-button" type="submit"><span>Preguntar</span><span class="button-arrow" aria-hidden="true">→</span></button>
+          </div>
+          <div class="area-chips" id="area-chips" role="group" aria-label="Filtrar por área">
+            <button type="button" class="stage-tab{% if not area %} is-active{% endif %}" data-area="" aria-pressed="{% if area %}false{% else %}true{% endif %}">Todas</button>
+            {% for a in areas %}
+            <button type="button" class="stage-tab{% if area == a.key %} is-active{% endif %}" data-area="{{ a.key }}" aria-pressed="{% if area == a.key %}true{% else %}false{% endif %}">{{ a.label }}<span class="tab-index">{{ a.total }}</span></button>
+            {% endfor %}
+          </div>
+          <div class="examples" id="examples">
+            <span>Prueba con:</span>
+            <button type="button" class="example">pH del macerado fuera de tolerancia</button>
+            <button type="button" class="example">no hay TCC para filtrar</button>
+            <button type="button" class="example">oxígeno total zona roja</button>
+            <button type="button" class="example">etiqueta arrugada</button>
+            <button type="button" class="example">camión con plaga</button>
+          </div>
+        </form>
+
+        <div id="thread" class="thread" aria-live="polite"></div>
+      </section>
+
+      <aside class="levels-panel" aria-label="Cómo leer las reglas">
+        <p class="eyebrow">CÓMO LEER CADA REGLA</p>
+        <ul class="levels">
+          <li><span class="level" data-level="continuar">Continuar</span>Condición normal o desviación menor.</li>
+          <li><span class="level" data-level="corregir">Corregir</span>Ajustar o verificar antes de seguir.</li>
+          <li><span class="level" data-level="escalar">Escalar</span>Avisar a quien indica la regla.</li>
+          <li><span class="level" data-level="detener">Detener</span>Parar, separar producto o no descargar.</li>
+        </ul>
+        <p class="eyebrow">DOCUMENTOS</p>
+        <ul class="docs" id="docs">
+          {% for a in areas %}
+          <li><button type="button" class="doc-link" data-area="{{ a.key }}"><strong>{{ a.label }}</strong><span>{{ a.documento }} · {% if a.sin_reglas %}sin reglas cargadas{% else %}{{ a.total }} reglas{% endif %}</span></button></li>
+          {% endfor %}
+        </ul>
+        <p class="levels-note">La guía es de apoyo. Ante una duda, un desvío sin regla o un documento con texto incompleto, avisa al Soporte de Calidad y consulta el documento vigente.</p>
+      </aside>
+    </div>
+    {% endif %}
+
+    <footer class="page-footer"><span>FERMENTA · GUÍA DE REGLAS DE DECISIÓN</span><span>CONSULTA LOCAL · SIN CONEXIÓN EXTERNA</span></footer>
+  </main>
+  {{ areas|json_script:"areas-data" }}
+</body>
+</html>

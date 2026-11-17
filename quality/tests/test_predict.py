@@ -210,3 +210,60 @@ class BrandStandardsTests(TestCase):
 
     def test_without_brand_generic_ranges_still_apply(self):
         self.assertEqual(self.post({"envasado": {"ph": 4.4}}).json()["decision"], "APROBADO")
+
+
+RULES_FIXTURE = str(Path(__file__).resolve().parent / "fixtures" / "reglas_prueba.json")
+
+
+@mock.patch.dict(os.environ, {"DECISION_RULES_FILE": RULES_FIXTURE})
+class DecisionRulesTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="operador", password="x-123456789")
+        self.client.force_login(self.user)
+
+    def search(self, **params):
+        return self.client.get("/quality/reglas/buscar/", params)
+
+    def test_rules_page_lists_areas(self):
+        response = self.client.get("/reglas/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Área de prueba")
+        self.assertContains(response, 'id="ask-input"')
+        self.assertContains(response, "sin reglas cargadas")
+
+    def test_rules_require_login(self):
+        self.assertRedirects(Client().get("/reglas/"), "/login/?next=/reglas/")
+        self.assertEqual(Client().get("/quality/reglas/buscar/", {"q": "presion"}).status_code, 401)
+
+    def test_question_finds_the_matching_rule_first(self):
+        body = self.search(q="¿Qué hago si la presión del filtro está sobre 5 bar?").json()
+        self.assertEqual(body["resultados"][0]["id"], "prueba-01")
+        self.assertEqual(body["resultados"][0]["area_label"], "Área de prueba")
+        self.assertEqual(body["resultados"][0]["documento"], "DOC-1")
+
+    def test_synonyms_and_accents(self):
+        self.assertEqual(self.search(q="o2 total fuera de tolerancia").json()["resultados"][0]["id"], "prueba-02")
+        self.assertEqual(self.search(q="PRESION").json()["resultados"][0]["id"], "prueba-01")
+
+    def test_pick_up_is_not_confused_with_pasteurization_units(self):
+        self.assertEqual(self.search(q="UP fuera de tolerancia").json()["resultados"][0]["id"], "otra-02")
+        self.assertEqual(self.search(q="pick up zona amarilla").json()["resultados"][0]["id"], "otra-01")
+
+    def test_area_filter_and_browse(self):
+        body = self.search(q="fuera de tolerancia", area="otra").json()
+        self.assertEqual({r["area"] for r in body["resultados"]}, {"otra"})
+        listed = self.search(area="prueba").json()["resultados"]
+        self.assertEqual([r["id"] for r in listed], ["prueba-01", "prueba-02"])
+        self.assertEqual(self.search(area="nada").status_code, 400)
+
+    def test_unknown_question_returns_nothing(self):
+        self.assertEqual(self.search(q="xyzzy").json()["resultados"], [])
+        self.assertEqual(self.search(q="").json()["resultados"], [])
+
+    def test_search_is_deterministic(self):
+        first = self.search(q="fuera de tolerancia").json()
+        for _ in range(5):
+            self.assertEqual(self.search(q="fuera de tolerancia").json(), first)
+
+    def test_dashboard_links_to_rules(self):
+        self.assertContains(self.client.get("/"), 'href="/reglas/"')

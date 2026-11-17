@@ -45,6 +45,9 @@ const DECISIONS = {
   SIN_EVALUAR: { state: "uncertain", label: "SIN RECOMENDACIÓN", title: "Faltan rangos para evaluar." },
 };
 
+// Etapa del analisis -> area de la guia de reglas de decision
+const RULE_AREA = { granos: "granos", bloque_caliente: "cocimiento", bloque_frio: "filtracion", envasado: "llenadora" };
+
 const STAGE_TEXT = {
   APROBADO: "dentro de rango",
   OBSERVADO: "requiere revisión",
@@ -80,6 +83,21 @@ function renderResult(result) {
       noteItem.className = "stage-sub";
       noteItem.textContent = note;
       stageList.append(noteItem);
+    }
+    const outOfRange = (stage.parameters || []).filter((p) => p.status === "fuera_de_estandar" || p.status === "fuera_de_rango");
+    if (outOfRange.length && RULE_AREA[stage.stage]) {
+      const help = document.createElement("li");
+      help.className = "stage-help";
+      help.append("¿Qué hacer? ");
+      outOfRange.forEach((p, i) => {
+        const link = document.createElement("a");
+        const query = `${p.label} ${p.status === "fuera_de_rango" ? "fuera de tolerancia" : "fuera de estándar"}`;
+        link.href = `/reglas/?area=${RULE_AREA[stage.stage]}&q=${encodeURIComponent(query)}`;
+        link.textContent = p.label;
+        if (i) help.append(" · ");
+        help.append(link);
+      });
+      stageList.append(help);
     }
   }
   stageNote.textContent = `${result.parameters_without_range} parámetros registrados aún no tienen rango de aceptación definido. La decisión final es del especialista.`;
