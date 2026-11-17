@@ -20,3 +20,6 @@ _respaldo_antes_de_*/
 Thumbs.db
 staticfiles/
 quality/ml/data/
+
+# Estandares internos por marca (documento de la planta): NO subir a GitHub
+quality/data/estandares_marca.json

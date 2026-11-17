@@ -53,6 +53,23 @@
         {% for stage in stages %}
         <fieldset class="process-group" data-stage="{{ stage.key }}">
           <legend><span class="group-index">{{ forloop.counter|stringformat:"02d" }}</span><span>{{ stage.label }}</span><small>{{ stage.subtitle }}</small></legend>
+          {% if stage.key == "envasado" %}
+          <div class="field-grid product-grid">
+            <label class="field" for="envasado-marca">Marca
+              <select id="envasado-marca" name="marca" data-context="marca">
+                <option value="">{% if brands %}Sin marca (rangos genéricos){% else %}No hay estándares cargados{% endif %}</option>
+                {% for code, name in brands %}<option value="{{ code }}">{{ name }}</option>{% endfor %}
+              </select>
+            </label>
+            <label class="field" for="envasado-formato">Formato
+              <select id="envasado-formato" name="formato" data-context="formato">
+                <option value="">Sin indicar</option>
+                {% for code, name in formats %}<option value="{{ code }}">{{ name }}</option>{% endfor %}
+              </select>
+            </label>
+          </div>
+          <p class="coverage-note">Con marca elegida, el envasado se evalúa con el estándar y la tolerancia de esa marca. Fuera de estándar pero dentro de tolerancia = observar.</p>
+          {% endif %}
           <div class="field-grid">
             {% for p in stage.parameters %}
             <label class="field" for="{{ stage.key }}-{{ p.key }}">{{ p.label }}{% if p.unit %} <span class="unit">{{ p.unit }}</span>{% endif %}

@@ -1,4 +1,7 @@
 import copy
+import os
+from pathlib import Path
+from unittest import mock
 import json
 
 from django.contrib.auth import get_user_model
@@ -147,3 +150,63 @@ class StageAnalysisTests(TestCase):
     def test_invalid_json_is_rejected(self):
         response = self.client.post("/quality/predict/", data="no es json", content_type="application/json")
         self.assertEqual(response.status_code, 400)
+
+
+FIXTURE = str(Path(__file__).resolve().parent / "fixtures" / "estandares_prueba.json")
+
+
+@mock.patch.dict(os.environ, {"BRAND_STANDARDS_FILE": FIXTURE})
+class BrandStandardsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="brand-user", password="x-123456789")
+        self.client.force_login(self.user)
+
+    def post(self, payload):
+        return self.client.post("/quality/predict/", data=json.dumps(payload), content_type="application/json")
+
+    def lot(self, **values):
+        return {"marca": "PRUEBA", "formato": "lata", "envasado": values}
+
+    def test_dashboard_lists_brands_and_formats(self):
+        response = self.client.get("/")
+        self.assertContains(response, '<option value="PRUEBA">Marca de prueba</option>')
+        self.assertContains(response, 'name="formato"')
+
+    def test_within_standard_is_approved(self):
+        body = self.post(self.lot(ph=4.2, alcohol=5.0, co2=5.2, o2=30)).json()
+        self.assertEqual(body["decision"], "APROBADO")
+        self.assertEqual(body["marca"], "PRUEBA")
+
+    def test_out_of_standard_inside_tolerance_is_observed(self):
+        body = self.post(self.lot(ph=4.55)).json()
+        self.assertEqual(body["decision"], "OBSERVADO")
+        envasado = body["stages"][4]
+        self.assertEqual(envasado["out_of_standard"], 1)
+        self.assertEqual(envasado["deviations"], 0)
+        self.assertEqual(envasado["parameters"][0]["status"], "fuera_de_estandar")
+
+    def test_out_of_tolerance_counts_as_deviation(self):
+        self.assertEqual(self.post(self.lot(ph=4.7)).json()["decision"], "OBSERVADO")
+        self.assertEqual(self.post(self.lot(ph=4.7, turbidez=1.5)).json()["decision"], "RECHAZADO")
+
+    def test_brand_replaces_generic_ranges_for_covered_parameters(self):
+        # Generico de UP es 15-25, pero la marca de prueba no define UP: queda sin rango
+        body = self.post(self.lot(test_pasteurizacion=40)).json()
+        self.assertEqual(body["decision"], "SIN_EVALUAR")
+        # Densidad no la cubre el documento: sigue con el rango provisorio
+        self.assertEqual(self.post(self.lot(densidad=1.05)).json()["decision"], "OBSERVADO")
+
+    def test_format_dependent_parameters(self):
+        self.assertEqual(self.post(self.lot(co2=5.6)).json()["decision"], "OBSERVADO")
+        missing_format = self.post({"marca": "PRUEBA", "envasado": {"co2": 5.2}})
+        self.assertEqual(missing_format.status_code, 400)
+        # Formato sin estandar para la marca: sin rango
+        no_keg = self.post({"marca": "PRUEBA", "formato": "barril", "envasado": {"co2": 5.2}}).json()
+        self.assertEqual(no_keg["decision"], "SIN_EVALUAR")
+
+    def test_unknown_brand_or_format_is_rejected(self):
+        self.assertEqual(self.post({"marca": "OTRA", "envasado": {"ph": 4.2}}).status_code, 400)
+        self.assertEqual(self.post({"formato": "tetra", "envasado": {"ph": 4.2}}).status_code, 400)
+
+    def test_without_brand_generic_ranges_still_apply(self):
+        self.assertEqual(self.post({"envasado": {"ph": 4.4}}).json()["decision"], "APROBADO")

@@ -8,6 +8,8 @@ cerveceria o con un especialista antes de usarlos para decidir.
 
 Origen de los rangos de aceptacion (ver README para los enlaces):
 - pH, densidad, alcohol y CO2 de envasado: nucleo del proyecto (cerveza terminada).
+  Si se elige una marca, el envasado usa los estandares de la planta por marca y formato
+  (ver quality/agents/brand_standards.py); estos rangos genericos quedan solo como respaldo.
 - Humedad del grano 3,5 a 5 %: interseccion de BYO (3,5 a 6 %) y Ashton Lewis (3 a 5 %).
 - Actividad enzimatica minima 194 grados WK: malta base > 60 grados Lintner (Ashton Lewis),
   convertido con grados WK = grados Lintner x 3,5 - 16.
@@ -30,7 +32,7 @@ def _p(key, label, unit, valid, accept=None):
 _PH = (3.9, 4.6)
 _DENSIDAD = (1.008, 1.020)
 _ALCOHOL = (4.0, 6.5)
-_CO2 = (2.2, 2.8)
+_CO2 = (4.3, 5.5)  # g/L (equivale a 2,2-2,8 vol.; 1 vol. = 1,96 g/L)
 
 STAGES = [
     {
@@ -70,9 +72,9 @@ STAGES = [
         "parameters": [
             _p("densidad", "Densidad", "g/mL", (0.9, 1.2)),
             _p("extracto_original", "Extracto original", "°P", (0, 40)),
-            _p("extracto_aparente", "Extracto aparente", "°P", (0, 40)),
+            _p("extracto_aparente", "Extracto aparente", "% p/p", (-5, 40)),
             _p("alcohol", "Alcohol", "% v/v", (0, 20)),
-            _p("co2", "CO₂", "vol.", (0, 10)),
+            _p("co2", "CO₂", "g/L", (0, 20)),
             _p("o2", "O₂", "ppb", (0, 10000), (0, 50)),
             _p("amargor", "Amargor", "IBU", (0, 200)),
             _p("proteina_sensible", "Proteína sensible", "mg/L", (0, 1000)),
@@ -90,10 +92,15 @@ STAGES = [
         "parameters": [
             _p("densidad", "Densidad", "g/mL", (0.9, 1.2), _DENSIDAD),
             _p("extracto_original", "Extracto original", "°P", (0, 40)),
-            _p("extracto_aparente", "Extracto aparente", "°P", (0, 40)),
+            _p("extracto_aparente", "Extracto aparente", "% p/p", (-5, 40)),
             _p("alcohol", "Alcohol", "% v/v", (0, 20), _ALCOHOL),
-            _p("co2", "CO₂", "vol.", (0, 10), _CO2),
-            _p("o2", "O₂", "ppb", (0, 10000), (0, 150)),
+            _p("alcohol_pp", "Alcohol", "% p/p", (0, 20)),
+            _p("co2", "CO₂", "g/L", (0, 20), _CO2),
+            _p("o2", "O₂ total del envase (TPO)", "ppb", (0, 10000), (0, 150)),
+            _p("o2_entrada_llenadora", "O₂ entrada a llenadora", "ppb", (0, 10000)),
+            _p("o2_disuelto", "O₂ disuelto", "ppb", (0, 10000)),
+            _p("o2_pickup_disuelto", "Pick up O₂ disuelto", "ppb", (0, 10000)),
+            _p("o2_pickup_total", "Pick up O₂ total", "ppb", (0, 10000)),
             _p("amargor", "Amargor", "IBU", (0, 200)),
             _p("proteina_sensible", "Proteína sensible", "mg/L", (0, 1000)),
             _p("color", "Color", "EBC", (0, 200)),
@@ -103,7 +110,8 @@ STAGES = [
             _p("conductividad", "Conductividad", "µS/cm", (0, 10000)),
             _p("so2", "SO₂", "mg/L", (0, 100)),
             _p("hierro", "Hierro", "mg/L", (0, 10)),
-            _p("test_pasteurizacion", "Test de pasteurización", "UP", (0, 1000), (15, 25)),
+            _p("test_pasteurizacion", "Unidades de pasteurización", "UP", (0, 1000), (15, 25)),
+            _p("t_salida_pasteurizador", "T° salida pasteurizador", "°C", (0, 100)),
             _p("calcio", "Calcio", "mg/L", (0, 1000)),
             _p("polifenoles", "Polifenoles", "mg/L", (0, 1000)),
             _p("turbidez", "Turbidez", "EBC", (0, 1000)),
@@ -134,10 +142,10 @@ EXAMPLE_LOT = {
     "bloque_caliente": {"temperatura": 98, "tiempo_hervido": 60, "densidad": 1.048,
                         "extracto_original": 12, "ph": 5.3},
     "bloque_frio": {"densidad": 1.012, "extracto_original": 12, "extracto_aparente": 2.5,
-                    "alcohol": 5.2, "co2": 2.5, "o2": 20, "amargor": 20, "proteina_sensible": 40,
+                    "alcohol": 5.2, "co2": 5.0, "o2": 20, "amargor": 20, "proteina_sensible": 40,
                     "color": 8, "espuma": 250, "ph": 4.4, "temperatura": 3, "microbiologia": 0,
                     "conductividad": 2000},
-    "envasado": {"densidad": 1.012, "alcohol": 5.2, "co2": 2.5, "ph": 4.4, "o2": 20,
+    "envasado": {"densidad": 1.012, "alcohol": 5.2, "co2": 5.2, "ph": 4.4, "o2": 20,
                  "amargor": 20, "color": 8, "temperatura": 3, "test_pasteurizacion": 20,
                  "diacetilo": 0.02},
     "logistica": {"pallets_total": 20, "pallets_ok": 19},

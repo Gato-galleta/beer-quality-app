@@ -1,0 +1,16 @@
+{
+ "documento": "Estándar de prueba (valores ficticios)",
+ "revisado": "2026-01-01",
+ "marcas": {
+  "PRUEBA": {
+   "nombre": "Marca de prueba",
+   "estandares": {
+    "ph": {"std": [4.0, 4.5], "tol": [3.9, 4.6]},
+    "alcohol": {"std": [4.8, 5.2], "tol": [4.6, 5.4]},
+    "turbidez": {"std": [null, 0.8], "tol": [null, 1.1]},
+    "co2": {"lata": {"std": [5.0, 5.4], "tol": [4.9, 5.5]}},
+    "o2": {"lata": {"std": [null, 50], "tol": [null, 100]}}
+   }
+  }
+ }
+}

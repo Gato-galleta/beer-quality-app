@@ -6,10 +6,10 @@ class LogisticsAgent(StageAgent):
     agent_id = "logistics_agent"
     stage_key = "logistica"
 
-    def _evaluate(self, values):
+    def _evaluate(self, values, context):
         parameters = [
             {"key": s["key"], "label": s["label"], "unit": s["unit"], "value": values[s["key"]],
-             "status": "sin_rango", "accept": None}
+             "status": "sin_rango", "accept": None, "tolerance": None, "source": None}
             for s in self.stage["parameters"] if s["key"] in values
         ]
         if not values:

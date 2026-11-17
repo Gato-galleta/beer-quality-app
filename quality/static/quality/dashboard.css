@@ -80,6 +80,9 @@ h1 em { color: var(--green); font-weight: 500; }
 .field { display: block; min-width: 0; color: #45554b; font-size: 11px; font-weight: 700; }
 .unit { margin-left: 4px; color: #89938b; font-size: 10px; font-weight: 500; }
 .field input { display: block; width: 100%; height: 42px; margin-top: 7px; padding: 0 12px; border: 1px solid #d4dbd1; border-radius: 3px; outline: none; background: rgba(255, 254, 250, .78); color: var(--ink); font: 500 14px var(--sans); transition: border-color .16s, box-shadow .16s, background .16s; }
+.field select { display: block; width: 100%; height: 42px; margin-top: 7px; padding: 0 10px; border: 1px solid #d4dbd1; border-radius: 3px; outline: none; background: rgba(255, 254, 250, .78); color: var(--ink); font: 500 14px var(--sans); }
+.field select:focus { border-color: var(--green); background: var(--white); box-shadow: 0 0 0 3px rgba(40, 79, 59, .11); }
+.product-grid { margin-bottom: 10px; }
 .field input::placeholder { color: #a6ada5; }
 .field input:hover { border-color: #9daa9b; }
 .field input:focus { border-color: var(--green); background: var(--white); box-shadow: 0 0 0 3px rgba(40, 79, 59, .11); }

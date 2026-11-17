@@ -47,7 +47,7 @@ const DECISIONS = {
 
 const STAGE_TEXT = {
   APROBADO: "dentro de rango",
-  OBSERVADO: "1 desviación",
+  OBSERVADO: "requiere revisión",
   RECHAZADO: "varias desviaciones",
   SIN_RANGOS: "registrado, sin rangos definidos",
   SIN_DATOS: "sin datos",
@@ -108,6 +108,7 @@ form.addEventListener("submit", async (event) => {
   if (!form.reportValidity()) return;
 
   const payload = {};
+  const context = {};
   let csrfToken = "";
   for (const [name, value] of new FormData(form).entries()) {
     if (name === "csrfmiddlewaretoken") {
@@ -115,12 +116,19 @@ form.addEventListener("submit", async (event) => {
       continue;
     }
     if (value === "") continue; // campo vacio: no se envia
+    if (name === "marca" || name === "formato") {
+      // marca y formato solo aplican al envasado
+      if (currentStage === "todas" || currentStage === "envasado") context[name] = value;
+      continue;
+    }
     const [stage, key] = name.split(".");
     if (currentStage !== "todas" && stage !== currentStage) continue; // solo la etapa elegida
     (payload[stage] ||= {})[key] = Number(value);
   }
 
-  if (Object.keys(payload).length === 0) {
+  const hasMeasurements = Object.keys(payload).length > 0;
+  Object.assign(payload, hasMeasurements ? context : {});
+  if (!hasMeasurements) {
     showError(currentStage === "todas" ? "Ingresa al menos una medición." : "Ingresa al menos una medición de esta etapa.");
     return;
   }

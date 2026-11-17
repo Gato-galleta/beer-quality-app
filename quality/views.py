@@ -4,12 +4,16 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 import json
 
+from quality.agents.brand_standards import FORMATS, brand_choices
 from quality.agents.parameters import EXAMPLE_LOT, STAGES
 
 
 @login_required
 def dashboard_view(request):
-    return render(request, "quality/dashboard.html", {"stages": STAGES, "example_lot": EXAMPLE_LOT})
+    return render(request, "quality/dashboard.html", {
+        "stages": STAGES, "example_lot": EXAMPLE_LOT,
+        "brands": brand_choices(), "formats": FORMATS.items(),
+    })
 
 
 @require_POST
