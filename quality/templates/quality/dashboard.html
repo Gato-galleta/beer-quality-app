@@ -46,6 +46,12 @@
           <span class="required-note">Todos los campos son opcionales</span>
         </div>
 
+        <div class="field-grid lot-grid">
+          <label class="field" for="lot-code">Código de lote <span class="unit">opcional</span>
+            <input id="lot-code" name="lote" type="text" maxlength="60" autocomplete="off" placeholder="Ej.: L5-2026-1117-01">
+          </label>
+          <p class="lot-note">Cada análisis queda registrado. Con 7 lotes previos de un parámetro se analiza su tendencia.</p>
+        </div>
         <nav class="stage-menu" id="stage-menu" aria-label="Elegir etapa del proceso">
           <button type="button" class="stage-tab is-active" data-stage="todas" aria-pressed="true">Todas</button>
           {% for stage in stages %}
@@ -103,6 +109,20 @@
         <div class="stage-summary" id="stage-summary" hidden>
           <ul class="stage-list" id="stage-list"></ul>
           <p class="stage-note" id="stage-note"></p>
+        </div>
+        <div class="specialist" id="specialist" hidden>
+          <p class="specialist-title">DECISIÓN FINAL DEL ESPECIALISTA</p>
+          <div id="specialist-form">
+            <div class="specialist-options" role="radiogroup" aria-label="Decisión final">
+              <button type="button" role="radio" aria-checked="false" data-decision="APROBADO">Aprobar</button>
+              <button type="button" role="radio" aria-checked="false" data-decision="OBSERVADO">Observar</button>
+              <button type="button" role="radio" aria-checked="false" data-decision="RECHAZADO">Rechazar</button>
+            </div>
+            <label class="specialist-label" for="specialist-comment">Comentario <span id="comment-rule">(opcional)</span></label>
+            <textarea id="specialist-comment" maxlength="500" rows="3" placeholder="Motivo de la decisión"></textarea>
+            <button type="button" class="specialist-confirm" id="specialist-confirm">Confirmar decisión</button>
+          </div>
+          <p class="specialist-msg" id="specialist-msg" role="status"></p>
         </div>
         <div class="result-footer"><span class="footer-mark">F</span><span>EVALUACIÓN POR ETAPA</span><span class="local-tag">LOCAL</span></div>
       </aside>

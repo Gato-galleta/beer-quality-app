@@ -1,4 +1,5 @@
-from quality.agents import brand_standards
+from quality.agents import brand_standards, trends
+from quality.agents.base import StageAgent
 from quality.agents.agua import WaterAgent
 from quality.agents.cold_block import ColdBlockAgent
 from quality.agents.granos import GrainAgent
@@ -15,13 +16,15 @@ SEVERITY = {"APROBADO": 0, "OBSERVADO": 1, "RECHAZADO": 2}
 
 MESSAGES = {
     "APROBADO": "Las etapas evaluadas están dentro de los rangos definidos.",
-    "OBSERVADO": "Hay una desviación o un valor fuera de estándar (dentro de tolerancia): el lote requiere revisión.",
+    "OBSERVADO": "Hay una desviación, un valor fuera de estándar (dentro de tolerancia) o una tendencia hacia el límite: el lote requiere revisión.",
     "RECHAZADO": "Hay varias desviaciones: se recomienda rechazar el lote. La decisión final es del especialista.",
     "SIN_EVALUAR": "Las mediciones ingresadas no tienen rangos de aceptación definidos, por lo que no se puede emitir una recomendación.",
 }
 
 
-def analyze_quality(input_data):
+def analyze_quality(input_data, history_for=None):
+    """Evalua el lote por etapa. history_for(stage, param, context) entrega los valores previos
+    de un parametro para el analisis de tendencias; sin el, no se analizan tendencias."""
     if not isinstance(input_data, dict):
         raise ValueError("Se esperaba un objeto con las etapas y sus mediciones")
 
@@ -37,6 +40,12 @@ def analyze_quality(input_data):
     if not any(stage["measured"] for stage in stages):
         raise ValueError("Ingresa al menos una medición")
 
+    trend_summary = None
+    if history_for is not None:
+        trend_summary = trends.apply(
+            stages, lambda stage, key: history_for(stage, key, context), StageAgent._decision
+        )
+
     evaluated = [s for s in stages if s["decision"] in SEVERITY]
     if evaluated:
         decision = max((s["decision"] for s in evaluated), key=SEVERITY.get)
@@ -51,6 +60,7 @@ def analyze_quality(input_data):
         "evaluated_stages": len(evaluated),
         "parameters_without_range": sum(s["parameters_without_range"] for s in stages),
         "stages": stages,
+        "tendencias": trend_summary,
     }
 
 

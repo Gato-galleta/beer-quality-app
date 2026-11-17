@@ -5,7 +5,22 @@ from unittest import mock
 import json
 
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
+import shutil
+import tempfile
+
+# Los registros JSON de las pruebas van a una carpeta temporal, nunca a la carpeta real
+_LOG_DIR = tempfile.mkdtemp(prefix="registros-prueba-")
+_LOG_OVERRIDE = override_settings(ANALYSIS_LOG_DIR=_LOG_DIR)
+
+
+def setUpModule():
+    _LOG_OVERRIDE.enable()
+
+
+def tearDownModule():
+    _LOG_OVERRIDE.disable()
+    shutil.rmtree(_LOG_DIR, ignore_errors=True)
 
 from quality.agents.parameters import EXAMPLE_LOT, STAGES
 
@@ -267,3 +282,189 @@ class DecisionRulesTests(TestCase):
 
     def test_dashboard_links_to_rules(self):
         self.assertContains(self.client.get("/"), 'href="/reglas/"')
+
+
+class TrendRuleTests(TestCase):
+    """Regla de tendencia de la seccion 9.1: 7 lotes previos, media movil de 3, umbral 80 %."""
+
+    def detect(self, history, value, standard=(3.9, 4.6)):
+        from quality.agents.trends import detect
+        return detect(history, value, standard)
+
+    def test_needs_seven_previous_lots(self):
+        self.assertIsNone(self.detect([4.0] * 6, 4.58))
+        self.assertIsNotNone(self.detect([4.0] * 7, 4.58))
+
+    def test_rising_drift_near_upper_limit_alerts(self):
+        trend = self.detect([4.0] * 5 + [4.45, 4.5], 4.58)
+        self.assertTrue(trend["alert"])
+        self.assertEqual(trend["direction"], "alza")
+        self.assertEqual(trend["limit"], 4.6)
+        self.assertGreaterEqual(trend["progress"], 0.8)
+
+    def test_falling_drift_near_lower_limit_alerts(self):
+        trend = self.detect([4.4] * 5 + [4.0, 3.98], 3.95)
+        self.assertTrue(trend["alert"])
+        self.assertEqual(trend["direction"], "baja")
+
+    def test_drift_far_from_limit_does_not_alert(self):
+        trend = self.detect([4.0] * 5 + [4.05, 4.1], 4.15)
+        self.assertEqual(trend["direction"], "alza")
+        self.assertFalse(trend["alert"])
+
+    def test_stable_or_noisy_series_does_not_alert(self):
+        self.assertFalse(self.detect([4.2] * 7, 4.2)["alert"])
+        self.assertFalse(self.detect([4.2, 4.4, 4.1, 4.5, 4.2, 4.5, 4.1], 4.55)["alert"])
+
+    def test_no_limit_in_drift_direction_does_not_alert(self):
+        trend = self.detect([0.5] * 5 + [0.3, 0.2], 0.1, standard=(None, 0.8))
+        self.assertEqual(trend["direction"], "baja")
+        self.assertFalse(trend["alert"])
+
+
+class LotHistoryTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="analista", password="x-123456789")
+        self.client.force_login(self.user)
+
+    def post(self, payload):
+        return self.client.post("/quality/predict/", data=json.dumps(payload), content_type="application/json")
+
+    def test_each_analysis_is_recorded_with_lot_code(self):
+        from quality.models import LotAnalysis
+        body = self.post({"lote": " L5-001 ", "envasado": {"ph": 4.4}}).json()
+        record = LotAnalysis.objects.get()
+        self.assertEqual(record.lot_code, "L5-001")
+        self.assertEqual(record.measurements, {"envasado": {"ph": 4.4}})
+        self.assertEqual(record.decision, "APROBADO")
+        self.assertEqual(record.user, self.user)
+        self.assertEqual(body["registro"]["id"], record.id)
+
+    def test_invalid_lot_code_is_rejected_and_not_recorded(self):
+        from quality.models import LotAnalysis
+        self.assertEqual(self.post({"lote": "x" * 61, "envasado": {"ph": 4.4}}).status_code, 400)
+        self.assertEqual(self.post({"envasado": {"ph": -1}}).status_code, 400)
+        self.assertEqual(LotAnalysis.objects.count(), 0)
+
+    def test_trend_turns_an_in_spec_value_into_observed(self):
+        for ph in [4.0] * 5 + [4.45, 4.5]:
+            self.assertEqual(self.post({"envasado": {"ph": ph}}).json()["decision"], "APROBADO")
+        body = self.post({"envasado": {"ph": 4.58}}).json()
+        self.assertEqual(body["decision"], "OBSERVADO")
+        envasado = body["stages"][4]
+        self.assertEqual(envasado["parameters"][0]["status"], "tendencia")
+        self.assertEqual(envasado["trend_alerts"], 1)
+        self.assertEqual(body["tendencias"]["alertas"], 1)
+        self.assertTrue(any("tendencia a la alza" in n for n in envasado["notes"]))
+
+    def test_without_enough_history_there_is_no_trend(self):
+        body = self.post({"envasado": {"ph": 4.58}}).json()
+        self.assertEqual(body["decision"], "APROBADO")
+        self.assertEqual(body["tendencias"], {"evaluados": 0, "alertas": 0, "sin_historial": 1})
+
+
+class JsonRecordTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="auditor", password="x-123456789")
+        self.client.force_login(self.user)
+
+    def analyze(self, payload):
+        return self.client.post("/quality/predict/", data=json.dumps(payload), content_type="application/json").json()
+
+    def test_each_analysis_writes_a_json_file(self):
+        from quality import records
+        from quality.models import LotAnalysis
+        body = self.analyze({"lote": "L-7", "envasado": {"ph": 4.4}})
+        self.assertTrue(body["registro"]["archivo_guardado"])
+        record = LotAnalysis.objects.get(pk=body["registro"]["id"])
+        path = records.file_path(record)
+        self.assertTrue(str(path).startswith(_LOG_DIR))
+        document = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(document["lote"], "L-7")
+        self.assertEqual(document["usuario"], "auditor")
+        self.assertEqual(document["mediciones"], {"envasado": {"ph": 4.4}})
+        self.assertEqual(document["decision"], "APROBADO")
+        self.assertEqual(document["huella_resultado"], body["registro"]["huella"])
+
+    def test_record_endpoint_returns_the_same_document(self):
+        body = self.analyze({"envasado": {"ph": 4.4}})
+        document = self.client.get(body["registro"]["url"]).json()
+        self.assertEqual(document["id"], body["registro"]["id"])
+        self.assertEqual(document["huella_resultado"], body["registro"]["huella"])
+        download = self.client.get(body["registro"]["url"], {"descargar": 1})
+        self.assertIn("attachment", download["Content-Disposition"])
+        listed = self.client.get("/quality/registros/").json()["registros"]
+        self.assertEqual(listed[0]["id"], body["registro"]["id"])
+
+    def test_same_input_gives_same_fingerprint(self):
+        first = self.analyze({"envasado": {"ph": 4.4, "alcohol": 5.0}})["registro"]["huella"]
+        second = self.analyze({"envasado": {"ph": 4.4, "alcohol": 5.0}})["registro"]["huella"]
+        self.assertEqual(first, second)
+        other = self.analyze({"envasado": {"ph": 4.5, "alcohol": 5.0}})["registro"]["huella"]
+        self.assertNotEqual(first, other)
+
+    def test_records_require_login_and_existing_id(self):
+        self.assertEqual(Client().get("/quality/registros/").status_code, 401)
+        self.assertEqual(Client().get("/quality/registros/1.json").status_code, 401)
+        self.assertEqual(self.client.get("/quality/registros/999.json").status_code, 404)
+
+
+class SpecialistDecisionTests(TestCase):
+    def setUp(self):
+        from django.contrib.auth.models import Group
+        self.specialist = get_user_model().objects.create_user(username="especialista", password="x-123456789")
+        self.specialist.groups.add(Group.objects.get(name="Especialista de calidad"))
+        self.operator = get_user_model().objects.create_user(username="operador2", password="x-123456789")
+        self.client.force_login(self.specialist)
+
+    def analyze(self, payload, client=None):
+        client = client or self.client
+        return client.post("/quality/predict/", data=json.dumps(payload), content_type="application/json").json()
+
+    def confirm(self, record_id, decision, comment="", client=None):
+        client = client or self.client
+        return client.post(f"/quality/registros/{record_id}/decision/",
+                           data=json.dumps({"decision": decision, "comentario": comment}),
+                           content_type="application/json")
+
+    def test_specialist_confirms_and_record_is_updated(self):
+        from quality import records
+        from quality.models import LotAnalysis
+        body = self.analyze({"envasado": {"ph": 4.4}})
+        self.assertTrue(body["registro"]["puede_confirmar"])
+        response = self.confirm(body["registro"]["id"], "APROBADO")
+        self.assertEqual(response.status_code, 200)
+        decision = response.json()["decision_especialista"]
+        self.assertEqual(decision["usuario"], "especialista")
+        self.assertTrue(decision["coincide_con_recomendacion"])
+        record = LotAnalysis.objects.get()
+        document = json.loads(records.file_path(record).read_text(encoding="utf-8"))
+        self.assertEqual(document["decision_especialista"]["decision"], "APROBADO")
+        self.assertEqual(self.client.get(body["registro"]["url"]).json()["decision_especialista"]["decision"], "APROBADO")
+
+    def test_different_decision_requires_a_reason(self):
+        record_id = self.analyze({"envasado": {"ph": 4.4}})["registro"]["id"]
+        self.assertEqual(self.confirm(record_id, "RECHAZADO", "malo").status_code, 400)
+        ok = self.confirm(record_id, "RECHAZADO", "Sabor metálico detectado en cata")
+        self.assertEqual(ok.status_code, 200)
+        self.assertFalse(ok.json()["decision_especialista"]["coincide_con_recomendacion"])
+
+    def test_decision_cannot_be_changed(self):
+        record_id = self.analyze({"envasado": {"ph": 4.4}})["registro"]["id"]
+        self.assertEqual(self.confirm(record_id, "APROBADO").status_code, 200)
+        self.assertEqual(self.confirm(record_id, "OBSERVADO", "cambio de opinión del turno").status_code, 409)
+
+    def test_only_specialists_can_confirm(self):
+        operator = Client()
+        operator.force_login(self.operator)
+        body = self.analyze({"envasado": {"ph": 4.4}}, client=operator)
+        self.assertFalse(body["registro"]["puede_confirmar"])
+        self.assertEqual(self.confirm(body["registro"]["id"], "APROBADO", client=operator).status_code, 403)
+        self.assertEqual(self.confirm(body["registro"]["id"], "APROBADO", client=Client()).status_code, 401)
+
+    def test_invalid_requests(self):
+        record_id = self.analyze({"envasado": {"ph": 4.4}})["registro"]["id"]
+        self.assertEqual(self.confirm(record_id, "LIBERAR").status_code, 400)
+        self.assertEqual(self.confirm(999, "APROBADO").status_code, 404)
+        no_range = self.analyze({"granos": {"granulometria": 70}})["registro"]["id"]
+        self.assertEqual(self.confirm(no_range, "APROBADO").status_code, 400)

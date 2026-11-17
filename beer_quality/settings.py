@@ -133,6 +133,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# Carpeta donde se guarda un archivo JSON por cada analisis de lote (trazabilidad)
+ANALYSIS_LOG_DIR = Path(os.environ.get('ANALYSIS_LOG_DIR', BASE_DIR / 'registros'))
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 

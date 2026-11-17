@@ -187,3 +187,30 @@ h1 em { color: var(--green); font-weight: 500; }
 .stage-list li[data-decision="RECHAZADO"] strong { color: #f2a89a; }
 .stage-list li.stage-sub { padding: 2px 0 8px; color: #9fab9d; font-size: 10px; border-bottom: 0; }
 .stage-note { margin: 12px 0 0; color: #9fab9d; font-size: 10px; line-height: 1.5; }
+
+/* Codigo de lote y tendencias */
+.lot-grid { align-items: end; margin-bottom: 16px; }
+.lot-note { margin: 0 0 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.field input[type="text"] { display: block; width: 100%; height: 42px; margin-top: 7px; padding: 0 12px; border: 1px solid #d4dbd1; border-radius: 3px; outline: none; background: rgba(255, 254, 250, .78); color: var(--ink); font: 500 14px var(--sans); }
+.field input[type="text"]:focus { border-color: var(--green); background: var(--white); box-shadow: 0 0 0 3px rgba(40, 79, 59, .11); }
+.stage-list li.stage-trend { display: block; padding: 2px 0 8px; border-bottom: 0; color: #f0bb77; font-size: 10px; }
+.stage-note a.record-link { color: var(--lime); font-weight: 700; text-underline-offset: 3px; }
+
+/* Decision final del especialista */
+.specialist { position: relative; z-index: 1; padding: 16px 0 20px; border-top: 1px solid rgba(217, 229, 212, .18); }
+.specialist-title { margin: 0 0 10px; color: var(--lime); font-size: 9px; font-weight: 800; letter-spacing: 1.2px; }
+.specialist-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.specialist-options button { min-height: 36px; border: 1px solid rgba(217, 229, 212, .3); border-radius: 3px; background: transparent; color: #e8ecdf; cursor: pointer; font: 700 11px var(--sans); }
+.specialist-options button:hover { border-color: var(--lime); }
+.specialist-options button[aria-checked="true"][data-decision="APROBADO"] { border-color: #c7d78b; background: #c7d78b; color: var(--green-deep); }
+.specialist-options button[aria-checked="true"][data-decision="OBSERVADO"] { border-color: #f0bb77; background: #f0bb77; color: var(--green-deep); }
+.specialist-options button[aria-checked="true"][data-decision="RECHAZADO"] { border-color: #f2a89a; background: #f2a89a; color: var(--green-deep); }
+.specialist-label { display: block; margin: 12px 0 5px; color: #c0cabe; font-size: 10px; font-weight: 700; }
+#specialist-comment { width: 100%; padding: 8px 10px; border: 1px solid rgba(217, 229, 212, .3); border-radius: 3px; background: rgba(255, 255, 255, .06); color: #f5f5e9; font: 500 12px var(--sans); resize: vertical; }
+#specialist-comment:focus { outline: none; border-color: var(--lime); }
+.specialist-confirm { width: 100%; min-height: 38px; margin-top: 10px; border: 0; border-radius: 3px; background: var(--lime); color: var(--green-deep); cursor: pointer; font: 800 12px var(--sans); }
+.specialist-confirm:disabled { cursor: wait; opacity: .6; }
+.specialist-options button:focus-visible, .specialist-confirm:focus-visible { outline: 3px solid var(--amber); outline-offset: 2px; }
+.specialist-msg { margin: 10px 0 0; color: #c0cabe; font-size: 11px; line-height: 1.55; }
+.specialist-msg.is-error { color: #f2a89a; }
+.specialist-msg strong { color: #f7f7ec; }

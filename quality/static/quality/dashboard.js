@@ -80,7 +80,7 @@ function renderResult(result) {
     stageList.append(item);
     for (const note of stage.notes || []) {
       const noteItem = document.createElement("li");
-      noteItem.className = "stage-sub";
+      noteItem.className = note.includes(": tendencia a la ") ? "stage-trend" : "stage-sub";
       noteItem.textContent = note;
       stageList.append(noteItem);
     }
@@ -100,7 +100,22 @@ function renderResult(result) {
       stageList.append(help);
     }
   }
-  stageNote.textContent = `${result.parameters_without_range} parámetros registrados aún no tienen rango de aceptación definido. La decisión final es del especialista.`;
+  const t = result.tendencias;
+  const trendText = t
+    ? ` Tendencias: con historial suficiente ${t.evaluados}, con alerta ${t.alertas}${t.sin_historial ? `, aún sin 7 lotes previos ${t.sin_historial}` : ""}.`
+    : "";
+  const saved = result.registro ? ` Registrado como análisis #${result.registro.id}${result.registro.lote ? ` (lote ${result.registro.lote})` : ""}.` : "";
+  stageNote.textContent = `${result.parameters_without_range} parámetros registrados aún no tienen rango de aceptación definido.${trendText}${saved} La decisión final es del especialista.`;
+  stageNote.querySelector("a.record-link")?.remove();
+  if (result.registro) {
+    const link = document.createElement("a");
+    link.className = "record-link";
+    link.href = result.registro.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Ver registro JSON";
+    stageNote.append(" ", link);
+  }
   stageSummary.hidden = false;
 }
 
@@ -127,6 +142,7 @@ form.addEventListener("submit", async (event) => {
 
   const payload = {};
   const context = {};
+  let lotCode = "";
   let csrfToken = "";
   for (const [name, value] of new FormData(form).entries()) {
     if (name === "csrfmiddlewaretoken") {
@@ -134,6 +150,10 @@ form.addEventListener("submit", async (event) => {
       continue;
     }
     if (value === "") continue; // campo vacio: no se envia
+    if (name === "lote") {
+      lotCode = value.trim();
+      continue;
+    }
     if (name === "marca" || name === "formato") {
       // marca y formato solo aplican al envasado
       if (currentStage === "todas" || currentStage === "envasado") context[name] = value;
@@ -146,6 +166,7 @@ form.addEventListener("submit", async (event) => {
 
   const hasMeasurements = Object.keys(payload).length > 0;
   Object.assign(payload, hasMeasurements ? context : {});
+  if (hasMeasurements && lotCode) payload.lote = lotCode;
   if (!hasMeasurements) {
     showError(currentStage === "todas" ? "Ingresa al menos una medición." : "Ingresa al menos una medición de esta etapa.");
     return;
@@ -158,6 +179,7 @@ form.addEventListener("submit", async (event) => {
   resultDescription.textContent = "Los agentes de cada etapa están evaluando los datos del lote.";
   resultPanel.dataset.state = "loading";
   stageSummary.hidden = true;
+  document.querySelector("#specialist").hidden = true;
 
   try {
     const response = await fetch("/quality/predict/", {
@@ -172,6 +194,7 @@ form.addEventListener("submit", async (event) => {
 
     if (!response.ok) throw new Error(result.error || "No se pudo analizar el lote.");
     renderResult(result);
+    showSpecialist(result);
   } catch (error) {
     resultPanel.dataset.state = "error";
     resultState.textContent = "ANÁLISIS INTERRUMPIDO";
@@ -181,5 +204,82 @@ form.addEventListener("submit", async (event) => {
   } finally {
     submitButton.disabled = false;
     buttonLabel.textContent = currentStage === "todas" ? "Analizar lote" : "Analizar esta etapa";
+  }
+});
+
+// ---- Decision final del especialista ----------------------------------------
+const specialist = document.querySelector("#specialist");
+const specialistForm = document.querySelector("#specialist-form");
+const specialistMsg = document.querySelector("#specialist-msg");
+const specialistComment = document.querySelector("#specialist-comment");
+const specialistConfirm = document.querySelector("#specialist-confirm");
+const commentRule = document.querySelector("#comment-rule");
+const DECISION_VERB = { APROBADO: "Aprobar", OBSERVADO: "Observar", RECHAZADO: "Rechazar" };
+let pending = null; // { id, recommendation, choice }
+
+function showSpecialist(result) {
+  const record = result.registro;
+  specialist.hidden = !record || !(result.decision in DECISION_VERB);
+  if (specialist.hidden) return;
+  pending = { id: record.id, recommendation: result.decision, choice: result.decision };
+  specialistComment.value = "";
+  specialistMsg.className = "specialist-msg";
+  if (!record.puede_confirmar) {
+    specialistForm.hidden = true;
+    specialistMsg.textContent = `Pendiente de confirmación por un especialista de calidad (análisis #${record.id}).`;
+    return;
+  }
+  specialistForm.hidden = false;
+  specialistMsg.textContent = "";
+  chooseDecision(result.decision);
+}
+
+function chooseDecision(decision) {
+  pending.choice = decision;
+  for (const b of specialist.querySelectorAll(".specialist-options button")) {
+    b.setAttribute("aria-checked", String(b.dataset.decision === decision));
+  }
+  const differs = decision !== pending.recommendation;
+  commentRule.textContent = differs ? "(obligatorio: difiere de la recomendación)" : "(opcional)";
+}
+
+specialist.querySelector(".specialist-options").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-decision]");
+  if (button && pending) chooseDecision(button.dataset.decision);
+});
+
+specialistConfirm.addEventListener("click", async () => {
+  if (!pending) return;
+  const comment = specialistComment.value.trim();
+  if (pending.choice !== pending.recommendation && comment.length < 10) {
+    specialistMsg.className = "specialist-msg is-error";
+    specialistMsg.textContent = "Tu decisión difiere de la recomendación: explica el motivo (al menos 10 caracteres).";
+    specialistComment.focus();
+    return;
+  }
+  specialistConfirm.disabled = true;
+  try {
+    const response = await fetch(`/quality/registros/${pending.id}/decision/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": form.elements.csrfmiddlewaretoken.value },
+      body: JSON.stringify({ decision: pending.choice, comentario: comment }),
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "No se pudo registrar la decisión.");
+    const d = body.decision_especialista;
+    specialistForm.hidden = true;
+    specialistMsg.className = "specialist-msg";
+    specialistMsg.replaceChildren(
+      "Decisión final: ", Object.assign(document.createElement("strong"), { textContent: DECISION_VERB[d.decision] }),
+      ` · ${d.usuario} · ${new Date(d.fecha).toLocaleString("es-CL")}`,
+      d.coincide_con_recomendacion ? " · coincide con la recomendación" : " · difiere de la recomendación",
+      d.comentario ? `. «${d.comentario}»` : "",
+    );
+    pending = null;
+  } catch (error) {
+    specialistMsg.className = "specialist-msg is-error";
+    specialistMsg.textContent = error.message;
+  } finally {
+    specialistConfirm.disabled = false;
   }
 });
